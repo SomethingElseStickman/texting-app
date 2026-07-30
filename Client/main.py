@@ -109,6 +109,9 @@ class mainWin(QMainWindow):
                         msgsLayout.addWidget(self.msgs)
                 self.localTxt = ""
                 def sendTxt():
+                        #msgs_s for msgs send - what the client sends to the server
+                        self.msgs_s = QLabel(self.txtInput.text())
+                        msgsLayout.addWidget(self.msgs_s, alignment=Qt.AlignRight)
                         try:
                                 val = self.txtInput.text()
                                 self.localTxt = sendPackets(str(val))

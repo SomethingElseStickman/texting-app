@@ -13,7 +13,6 @@ def connection(conn, addr):
 
             if not data:
                 break
-
             conn.sendall(data)
 
 def listen(server):
