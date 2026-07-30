@@ -4,22 +4,24 @@ QApplication, QMainWindow, QLineEdit, QMessageBox, QVBoxLayout, QLabel,
 QHBoxLayout, QScrollArea, QWidget, QDialog, QDialogButtonBox, QComboBox
 )
 #TODO make chosen_contact_text.inp QComboBox() to allow user to select multiple contacts to text
-#TODO change line 45 to addItems()
 from PyQt5.QtCore import QSize, Qt
 import threading
 import sys
 import json
+import hashlib
 HOST =  "127.0.0.1"
 PORT = 65432
 with open("contacts.json", "r", encoding="utf-8") as f:
         jsonContacts = f.read()
 dicContacts = json.loads(jsonContacts)
 print(dicContacts)
+username = dicContacts["username"]
 contacts = []
 contactIps = []
 contactStatuses = []
 temp = None
 interv = 0
+onlineNotifier = 1 #tells send packets func if we are just notifying online status or are sending a text message
 #iterates through the contact json script
 for contact in dicContacts["contacts"]:
         contacts.append(contact["contact_name"])
@@ -28,13 +30,20 @@ for contact in dicContacts["contacts"]:
 #send packets to the server
 #NOTE: right now it just sends the text back to the sender
 def sendPackets(msg="disregard this message - sent by program DISREGARD"):
+        global onlineNotifier
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client:
                 client.connect((HOST, PORT))
-                client.sendall(msg.encode("utf-8"))
-                data = client.recv(1024)
-
-        return data
-
+                if onlineNotifier != 1:
+                        client.sendall(msg.encode("utf-8"))
+                        data = client.recv(1024)
+                        return data
+                else:
+                        client.sendall(str(hashlib.sha256("online".encode("utf-8")).hexdigest()).encode("utf-8"))
+                        result = client.recv(1024)
+                        if result.decode() == "1":
+                                client.sendall(username.encode("utf-8"))
+                                onlineNotifier = 0
+sendPackets()
 class choose_contact_text(QDialog):
         def __init__(self):
                 super().__init__()
