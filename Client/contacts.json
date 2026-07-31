@@ -1,11 +1,11 @@
 {
-        "username": "anonymous",
-        "status": "no status",
-        "contacts": [
-                {
-                        "contact_name": "Note To Self",
-                        "ip": "127.0.0.1",
-                        "status": "Hello! Use this contact as a note taker for things you forget often."
-                }
-        ]
+    "username": "anonymous",
+    "status": "no status",
+    "contacts": [
+        {
+            "contact_name": "Note To Self",
+            "username": "127.0.0.1",
+            "status": "Hello! Use this contact as a note taker for things you forget often."
+        }
+    ]
 }

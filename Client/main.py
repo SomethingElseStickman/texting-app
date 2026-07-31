@@ -1,32 +1,42 @@
 import socket
 from PyQt5.QtWidgets import (
 QApplication, QMainWindow, QLineEdit, QMessageBox, QVBoxLayout, QLabel, 
-QHBoxLayout, QScrollArea, QWidget, QDialog, QDialogButtonBox, QComboBox
+QHBoxLayout, QScrollArea, QWidget, QDialog, QDialogButtonBox, QComboBox, 
+QToolBar, QAction
 )
-#TODO make chosen_contact_text.inp QComboBox() to allow user to select multiple contacts to text
+#TODO add username selection and allow server to send back information about contacts.
+#TODO add labels for adding contact input fields for clarity
+#TODO send to server a handshake that sees if the username selected for contact adding is in the database.
+from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import QSize, Qt
 import threading
 import sys
 import json
 import hashlib
+import os
 HOST =  "127.0.0.1"
 PORT = 65432
+fileDir = os.path.dirname(__file__)
+iconDir = os.path.join(fileDir, "icons")
 with open("contacts.json", "r", encoding="utf-8") as f:
         jsonContacts = f.read()
 dicContacts = json.loads(jsonContacts)
 print(dicContacts)
 username = dicContacts["username"]
 contacts = []
-contactIps = []
+contactUsernames = []
 contactStatuses = []
 temp = None
 interv = 0
 onlineNotifier = 1 #tells send packets func if we are just notifying online status or are sending a text message
 #iterates through the contact json script
-for contact in dicContacts["contacts"]:
-        contacts.append(contact["contact_name"])
-        contactIps.append(contact["ip"])
-        contactStatuses.append(contact["status"])
+def iterateThroughContacts():
+        global contacts, contactUsernames, contactStatuses
+        for contact in dicContacts["contacts"]:
+                contacts.append(contact["contact_name"])
+                contactUsernames.append(contact["username"])
+                contactStatuses.append(contact["status"])
+iterateThroughContacts()
 #send packets to the server
 #NOTE: right now it just sends the text back to the sender
 def sendPackets(msg="disregard this message - sent by program DISREGARD"):
@@ -73,6 +83,45 @@ class choose_contact_text(QDialog):
                         self.reject()
                 self.btnWidget.button(QDialogButtonBox.Apply).clicked.connect(accepted)
                 self.btnWidget.button(QDialogButtonBox.Close).clicked.connect(denied)
+class addContact(QDialog):
+        def __init__(self):
+                super().__init__()
+                self.setWindowTitle("Add Contact")
+
+                btns = QDialogButtonBox.Apply | QDialogButtonBox.Close
+                self.btnWidget = QDialogButtonBox(btns)
+
+                self.contactInp = QLineEdit()
+                self.userInp = QLineEdit()
+
+                self.btnLayout = QVBoxLayout()
+                self.btnLayout.addWidget(self.contactInp)
+                self.btnLayout.addWidget(self.userInp)
+                self.btnLayout.addWidget(self.btnWidget)
+                self.setLayout(self.btnLayout)
+                def accepted():
+                        if (self.contactInp or self.userInp) == "":
+                                redoDlg = QMessageBox(self)
+                                redoDlg.setWindowTitle("Redo Inputs")
+                                redoDlg.setText("One or more text inputs was left empty. Please fill both these inputs in with a valid username and a contact")
+                                redoDlg.setStandardButtons(QMessageBox.Retry)
+                                redoDlg.setIcon(QMessageBox.Warning)
+                                redoDlg.exec()
+                                return
+                        newContact = {
+                                "contact_name" : self.contactInp.text(),
+                                "username" : self.userInp.text(),
+                                "status" : ""
+                        }
+                        dicContacts["contacts"].append(newContact)
+                        with open("contacts.json", "w", encoding="utf-8") as f:
+                                f.write(json.dumps(dicContacts, indent=4))
+                        iterateThroughContacts()
+                        print("new contact added")
+                        self.accept()
+                def denied():
+                        self.reject()
+                self.btnWidget.button(QDialogButtonBox.Apply).clicked.connect(accepted)
 class mainWin(QMainWindow):
         def __init__(self):
                 super().__init__()
@@ -87,7 +136,32 @@ class mainWin(QMainWindow):
                 mainWidget = QWidget()
                 self.setCentralWidget(mainWidget)
 
+                #toolbar stuff
+
+                toolbar = QToolBar("toolbar")
+                self.addToolBar(toolbar) 
+
+                def addContact_ATriggered():
+                        dlg1 = addContact()
+                        if dlg1.exec():
+                                print("add contact success")
+                        else:
+                                print("add contact failure")
+                plusIcon = os.path.join(iconDir, "plus.png")
+                addContact_A = QAction(QIcon(plusIcon), "Add Contact", self) #A for action
+                addContact_A.triggered.connect(addContact_ATriggered)
+
+                darkPersonIcon = os.path.join(iconDir, "dark_person.png")
+                changeDisplayName_A = QAction(QIcon(darkPersonIcon), "Change Display Name", self)
+
+                menu = self.menuBar()
+                contactMenu = menu.addMenu("&File")
+                contactMenu.addAction(addContact_A)
+                contactMenu.addSeparator()
+                contactMenu.addAction(changeDisplayName_A)
+
                 mainLayout = QVBoxLayout()
+
 
                 #messages
 
