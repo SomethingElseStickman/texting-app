@@ -5,8 +5,6 @@ QHBoxLayout, QScrollArea, QWidget, QDialog, QDialogButtonBox, QComboBox,
 QToolBar, QAction
 )
 #TODO add username selection and allow server to send back information about contacts.
-#TODO add labels for adding contact input fields for clarity
-#TODO send to server a handshake that sees if the username selected for contact adding is in the database.
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import QSize, Qt
 import threading
@@ -37,22 +35,87 @@ def iterateThroughContacts():
                 contactUsernames.append(contact["username"])
                 contactStatuses.append(contact["status"])
 iterateThroughContacts()
+def updateContacts():
+        with open("contacts.json", "w", encoding="utf-8") as f:
+                f.write(json.dumps(dicContacts, indent=4))
 #send packets to the server
 #NOTE: right now it just sends the text back to the sender
-def sendPackets(msg="disregard this message - sent by program DISREGARD"):
+def checkUsername(tmp=""): #tmp for the userauth but im too lazy to make a name for that
+        global onlineNotifier
+        onlineNotifier = 2
+        sendPackets(usernameAuth=tmp)
+        if onlineNotifier == 735:
+                onlineNotifier = 0
+                return True
+        elif onlineNotifier == 4063:
+                onlineNotifier = 0
+                return False
+
+class addUser(QDialog):
+        def __init__(self):
+                super().__init__()
+                self.setWindowTitle("Add Your Username")
+                btns = QDialogButtonBox.Apply | QDialogButtonBox.Close
+                self.btnWidget = QDialogButtonBox(btns)
+                self.inpLabel = QLabel("Enter In a Username")
+                self.inp = QLineEdit()
+                btnLayout = QVBoxLayout()
+                btnLayout.addWidget(self.inpLabel)
+                btnLayout.addWidget(self.inp)
+                self.setLayout(btnLayout)
+
+                def returnP():  #return pressed
+                        userAvailable = checkUsername(self.inp.text())
+                        if userAvailable:
+                                username = self.inp.text()
+                                dicContacts["username"] = username
+                                updateContacts()
+                                self.accept()
+                        else:
+                                redoDlg = QMessageBox(self)
+                                redoDlg.setWindowTitle("Redo Input")
+                                redoDlg.setText("This username is already taken")
+                                redoDlg.setStandardButtons(QMessageBox.Retry)
+                                redoDlg.setIcon(QMessageBox.Warning)
+                                redoDlg.exec()
+                                return
+                def denied():
+                        self.reject()
+                self.inp.returnPressed.connect(returnP)
+                self.btnWidget.button(QDialogButtonBox.Apply).clicked.connect(returnP)
+                self.btnWidget.button(QDialogButtonBox.Close).clicked.connect(denied)
+def sendPackets(msg="disregard this message - sent by program DISREGARD", usernameAuth=""):
         global onlineNotifier
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client:
                 client.connect((HOST, PORT))
-                if onlineNotifier != 1:
+                if onlineNotifier == 0:
                         client.sendall(msg.encode("utf-8"))
                         data = client.recv(1024)
                         return data
-                else:
+                elif (onlineNotifier == 1): #notifies server client user is online
                         client.sendall(str(hashlib.sha256("online".encode("utf-8")).hexdigest()).encode("utf-8"))
                         result = client.recv(1024)
                         if result.decode() == "1":
                                 client.sendall(username.encode("utf-8"))
                                 onlineNotifier = 0
+                                result = 0
+                elif (onlineNotifier == 2): #checks if a username exists
+                        print("hi")
+                        client.sendall(str(hashlib.sha256("username".encode("utf-8")).hexdigest()).encode("utf-8"))
+                        result = client.recv(1024)
+                        if result.decode() == "2":
+                                client.sendall(usernameAuth.encode("utf-8"))
+                                result = 0
+                                result = client.recv(1024)
+                                print(result.decode() + "1")
+                                if result.decode() == "good":
+                                        onlineNotifier = 735 #735 for yes
+                                else:
+                                        print(result)
+                                        onlineNotifier = 4063 #4063 for nope
+                elif (onlineNotifier == 3):
+                        pass
+                        #client.sendall(str(hashlib.sha256("finalized".encode("utf-8")).hexdigest()).encode("utf-8") + )
 sendPackets()
 class choose_contact_text(QDialog):
         def __init__(self):
@@ -94,8 +157,13 @@ class addContact(QDialog):
                 self.contactInp = QLineEdit()
                 self.userInp = QLineEdit()
 
+                self.contactLabel = QLabel("Contact Field: ")
+                self.userLabel = QLabel("Username Field: ")
+
                 self.btnLayout = QVBoxLayout()
+                self.btnLayout.addWidget(self.contactLabel)
                 self.btnLayout.addWidget(self.contactInp)
+                self.btnLayout.addWidget(self.userLabel)
                 self.btnLayout.addWidget(self.userInp)
                 self.btnLayout.addWidget(self.btnWidget)
                 self.setLayout(self.btnLayout)
@@ -114,24 +182,38 @@ class addContact(QDialog):
                                 "status" : ""
                         }
                         dicContacts["contacts"].append(newContact)
-                        with open("contacts.json", "w", encoding="utf-8") as f:
-                                f.write(json.dumps(dicContacts, indent=4))
+                        updateContacts()
                         iterateThroughContacts()
                         print("new contact added")
                         self.accept()
                 def denied():
                         self.reject()
                 self.btnWidget.button(QDialogButtonBox.Apply).clicked.connect(accepted)
+                self.btnWidget.button(QDialogButtonBox.Close).clicked.connect(denied)
 class mainWin(QMainWindow):
         def __init__(self):
                 super().__init__()
-                dlg = choose_contact_text()
-                if dlg.exec():
-                        print("sucess")
+
+                def addUser_ATriggered():
+                        usrInterfaceDlg = addUser()
+                        if usrInterfaceDlg.exec():
+                                print("add username success")
+                        else:
+                                print("add username failure")
+                def execCCT(): #choose_contact_text
+                        dlg = choose_contact_text()
+                        if dlg.exec():
+                                print("sucess")
+                        else:
+                             	print("failure")
+                        contactMsgName = dlg.contact_c
+                        self.setWindowTitle(f"chat with {contactMsgName}")
+
+                if username != "anonymous":
+                        execCCT()
                 else:
-                        print("failure")
-                contactMsgName = dlg.contact_c
-                self.setWindowTitle(f"chat with {contactMsgName}")
+                        addUser_ATriggered()
+                        execCCT()
 
                 mainWidget = QWidget()
                 self.setCentralWidget(mainWidget)
@@ -152,13 +234,14 @@ class mainWin(QMainWindow):
                 addContact_A.triggered.connect(addContact_ATriggered)
 
                 darkPersonIcon = os.path.join(iconDir, "dark_person.png")
-                changeDisplayName_A = QAction(QIcon(darkPersonIcon), "Change Display Name", self)
+                addUserName_A = QAction(QIcon(darkPersonIcon), "Add Your Username", self)
+                addUserName_A.triggered.connect(addUser_ATriggered)
 
                 menu = self.menuBar()
                 contactMenu = menu.addMenu("&File")
                 contactMenu.addAction(addContact_A)
                 contactMenu.addSeparator()
-                contactMenu.addAction(changeDisplayName_A)
+                contactMenu.addAction(addUserName_A)
 
                 mainLayout = QVBoxLayout()
 
@@ -199,7 +282,7 @@ class mainWin(QMainWindow):
                                 val = self.txtInput.text()
                                 self.localTxt = sendPackets(str(val))
                         except Exception as e:
-                                QMessageBox.warning(self, "Error", f"failed to process: {e}")
+                                QMessageBox.critical(self, "Error", f"failed to process: {e}")
                         else:
                                 setupMsgs()
                                 self.txtInput.clear()
