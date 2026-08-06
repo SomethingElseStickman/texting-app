@@ -4,16 +4,22 @@ QApplication, QMainWindow, QLineEdit, QMessageBox, QVBoxLayout, QLabel,
 QHBoxLayout, QScrollArea, QWidget, QDialog, QDialogButtonBox, QComboBox, 
 QToolBar, QAction
 )
-#TODO add username selection and allow server to send back information about contacts.
 from PyQt5.QtGui import QIcon
-from PyQt5.QtCore import QSize, Qt
+from PyQt5.QtCore import QSize, Qt, pyqtSignal
 import threading
 import sys
 import json
 import hashlib
 import os
+import time
 HOST =  "127.0.0.1"
 PORT = 65432
+noteToSelfUser = "127.0.0.1"
+
+clientSock = None
+recvData = False
+recvDataReady = threading.Event()
+incomingMsg = threading.Event()
 fileDir = os.path.dirname(__file__)
 iconDir = os.path.join(fileDir, "icons")
 with open("contacts.json", "r", encoding="utf-8") as f:
@@ -24,10 +30,20 @@ username = dicContacts["username"]
 contacts = []
 contactUsernames = []
 contactStatuses = []
+contactMsgName = ""
+contactUsrName = ""
 temp = None
 interv = 0
+localTxt = None
 onlineNotifier = 1 #tells send packets func if we are just notifying online status or are sending a text message
 #iterates through the contact json script
+def threadSendPackets(usernameAuth: string, msg="disregard this message - sent by program DISREGARD"):
+        th = threading.Thread(
+                target=sendPackets,
+                args=(usernameAuth, msg),
+                daemon=True
+        )
+        th.start()
 def iterateThroughContacts():
         global contacts, contactUsernames, contactStatuses
         for contact in dicContacts["contacts"]:
@@ -40,16 +56,32 @@ def updateContacts():
                 f.write(json.dumps(dicContacts, indent=4))
 #send packets to the server
 #NOTE: right now it just sends the text back to the sender
-def checkUsername(tmp=""): #tmp for the userauth but im too lazy to make a name for that
+def checkUsername(tmp: string, addC=False): #tmp for the userauth but im too lazy to make a name for that also addC for addcontact var
         global onlineNotifier
         onlineNotifier = 2
-        sendPackets(usernameAuth=tmp)
-        if onlineNotifier == 735:
-                onlineNotifier = 0
+        print(tmp)
+        if tmp != noteToSelfUser:
+                threadSendPackets(usernameAuth=tmp)
+        else:
                 return True
-        elif onlineNotifier == 4063:
+        def mainL(): #main logic
+                global onlineNotifier
+                print(onlineNotifier)
                 onlineNotifier = 0
-                return False
+        if onlineNotifier == 735:
+                if addC == False: #return for if func is checking if user is in database
+                        mainL()
+                        return True
+                else: #return for if func is checking if the user is not in the database
+                        mainL()
+                        return False
+        elif onlineNotifier == 4063:
+                if addC == False:
+                        mainL()
+                        return False
+                else:
+                        mainL()
+                        return True
 
 class addUser(QDialog):
         def __init__(self):
@@ -65,6 +97,7 @@ class addUser(QDialog):
                 self.setLayout(btnLayout)
 
                 def returnP():  #return pressed
+                        global username
                         userAvailable = checkUsername(self.inp.text())
                         if userAvailable:
                                 username = self.inp.text()
@@ -84,39 +117,66 @@ class addUser(QDialog):
                 self.inp.returnPressed.connect(returnP)
                 self.btnWidget.button(QDialogButtonBox.Apply).clicked.connect(returnP)
                 self.btnWidget.button(QDialogButtonBox.Close).clicked.connect(denied)
-def sendPackets(msg="disregard this message - sent by program DISREGARD", usernameAuth=""):
+def sendPackets(usernameAuth: string, msg="disregard this message - sent by program DISREGARD"):
         global onlineNotifier
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client:
-                client.connect((HOST, PORT))
-                if onlineNotifier == 0:
-                        client.sendall(msg.encode("utf-8"))
-                        data = client.recv(1024)
-                        return data
-                elif (onlineNotifier == 1): #notifies server client user is online
-                        client.sendall(str(hashlib.sha256("online".encode("utf-8")).hexdigest()).encode("utf-8"))
-                        result = client.recv(1024)
-                        if result.decode() == "1":
-                                client.sendall(username.encode("utf-8"))
-                                onlineNotifier = 0
-                                result = 0
-                elif (onlineNotifier == 2): #checks if a username exists
-                        print("hi")
-                        client.sendall(str(hashlib.sha256("username".encode("utf-8")).hexdigest()).encode("utf-8"))
-                        result = client.recv(1024)
-                        if result.decode() == "2":
-                                client.sendall(usernameAuth.encode("utf-8"))
-                                result = 0
-                                result = client.recv(1024)
-                                print(result.decode() + "1")
-                                if result.decode() == "good":
-                                        onlineNotifier = 735 #735 for yes
-                                else:
-                                        print(result)
-                                        onlineNotifier = 4063 #4063 for nope
-                elif (onlineNotifier == 3):
-                        pass
-                        #client.sendall(str(hashlib.sha256("finalized".encode("utf-8")).hexdigest()).encode("utf-8") + )
-sendPackets()
+        global localTxt
+        global recvData
+        client = clientSock
+        if onlineNotifier == 0:
+                dictMsg = {"fromUsername": username, "toUsername": contactUsrName, "message": msg}
+                print({
+                        "from": username,
+                        "to": contactUsrName,
+                        "msg": msg
+                })
+                client.sendall(json.dumps(dictMsg).encode("utf-8"))
+                recvDataReady.wait()
+                localTxt = recvData
+                recvDataReady.clear()
+        elif (onlineNotifier == 1): #notifies server client user is online
+                client.sendall(str(hashlib.sha256("online".encode("utf-8")).hexdigest()).encode("utf-8"))
+                recvDataReady.wait()
+                result = recvData
+                recvDataReady.clear()
+                if result == "1":
+                        client.sendall(username.encode("utf-8"))
+                        onlineNotifier = 0
+                        result = 0
+        elif (onlineNotifier == 2): #checks if a username exists
+                print("hi")
+                client.sendall(str(hashlib.sha256("username".encode("utf-8")).hexdigest()).encode("utf-8"))
+                recvDataReady.wait()
+                result = recvData
+                recvDataReady.clear()
+                if result.decode() == "2":
+                        client.sendall(usernameAuth.encode("utf-8"))
+                        recvDataReady.wait()
+                        result = recvData
+                        recvDataReady.clear()
+                        print(result + "1")
+                        if result == "good":
+                                onlineNotifier = 735 #735 for yes
+                        else:
+                                print(result)
+                                onlineNotifier = 4063 #4063 for nope
+def recvPackets():
+        global clientSock
+        global recvDataReady
+        global recvData
+        client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        clientSock = client
+        client.connect((HOST, PORT))
+        while True:
+                data = client.recv(1024)
+                if data:
+                        recvData = data.decode()
+                        recvDataReady.set()
+                        try:
+                                window.incomingMessage.emit(recvData)
+                        except NameError:
+                                pass
+                if not data:
+                        break
 class choose_contact_text(QDialog):
         def __init__(self):
                 super().__init__()
@@ -130,15 +190,18 @@ class choose_contact_text(QDialog):
                 btnLayout.addWidget(self.btnWidget)
                 self.setLayout(btnLayout)
                 self.contact_c = ""
+                self.usernameForContact = ""
                 self.comboAcceptedRan = False
                 def comboAccepted(index): #contact_c means contact_chosen
                         self.contact_c = self.inp.itemText(index)
+                        self.usernameForContact = contactUsernames[index]
                         self.comboAcceptedRan = True
                         return self.inp.itemText(index)
                 self.inp.activated.connect(comboAccepted)
                 def accepted():
                         if self.comboAcceptedRan != True:
                                 self.contact_c = contacts[0]
+                                self.usernameForContact = contactUsernames[0]
                         self.comboAcceptedRan = False
                         self.accept()
                 def denied():
@@ -168,32 +231,47 @@ class addContact(QDialog):
                 self.btnLayout.addWidget(self.btnWidget)
                 self.setLayout(self.btnLayout)
                 def accepted():
-                        if (self.contactInp or self.userInp) == "":
+                        def redoDlgFunc(winTitle: string, text: string):
                                 redoDlg = QMessageBox(self)
-                                redoDlg.setWindowTitle("Redo Inputs")
-                                redoDlg.setText("One or more text inputs was left empty. Please fill both these inputs in with a valid username and a contact")
+                                redoDlg.setWindowTitle(winTitle)
+                                redoDlg.setText(text)
                                 redoDlg.setStandardButtons(QMessageBox.Retry)
                                 redoDlg.setIcon(QMessageBox.Warning)
                                 redoDlg.exec()
+                        if (self.contactInp or self.userInp) == "":
+                                redoDlgFunc(winTitle="Redo Inputs", text="One or more text inputs were left empty. Please fill out both of these inputs with a valid username and contact.")
                                 return
-                        newContact = {
-                                "contact_name" : self.contactInp.text(),
-                                "username" : self.userInp.text(),
-                                "status" : ""
-                        }
-                        dicContacts["contacts"].append(newContact)
-                        updateContacts()
-                        iterateThroughContacts()
-                        print("new contact added")
-                        self.accept()
+                        rslt = checkUsername(self.userInp.text(), True)
+                        if rslt == True:
+                                newContact = {
+                                        "contact_name" : self.contactInp.text(),
+                                        "username" : self.userInp.text(),
+                                        "status" : ""
+                                }
+                                dicContacts["contacts"].append(newContact)
+                                updateContacts()
+                                iterateThroughContacts()
+                                print("new contact added")
+                                self.accept()
+                        else:
+                                redoDlgFunc(winTitle="Username Doesnt Exist", text="The username you typed doesn't exist in our database. Please check your spelling.")
+                                return
                 def denied():
                         self.reject()
                 self.btnWidget.button(QDialogButtonBox.Apply).clicked.connect(accepted)
                 self.btnWidget.button(QDialogButtonBox.Close).clicked.connect(denied)
 class mainWin(QMainWindow):
+        incomingMessage = pyqtSignal(str)
         def __init__(self):
                 super().__init__()
 
+                thread = threading.Thread(
+                        target=recvPackets,
+                        daemon=True
+                )
+                thread.start()
+                if contactUsrName != noteToSelfUser:
+                        threadSendPackets(None)
                 def addUser_ATriggered():
                         usrInterfaceDlg = addUser()
                         if usrInterfaceDlg.exec():
@@ -201,12 +279,14 @@ class mainWin(QMainWindow):
                         else:
                                 print("add username failure")
                 def execCCT(): #choose_contact_text
+                        global contactMsgName, contactUsrName
                         dlg = choose_contact_text()
                         if dlg.exec():
                                 print("sucess")
                         else:
                              	print("failure")
                         contactMsgName = dlg.contact_c
+                        contactUsrName = dlg.usernameForContact
                         self.setWindowTitle(f"chat with {contactMsgName}")
 
                 if username != "anonymous":
@@ -270,8 +350,9 @@ class mainWin(QMainWindow):
                 mainLayout.addLayout(sendTxtLayout)
 
                 mainWidget.setLayout(mainLayout)
-                def setupMsgs():
-                        self.msgs = QLabel(self.localTxt.decode("utf-8"))
+                def setupMsgs(data):
+                        msgDict = json.loads(data)
+                        self.msgs = QLabel(msgDict["message"])
                         msgsLayout.addWidget(self.msgs)
                 self.localTxt = ""
                 def sendTxt():
@@ -279,14 +360,20 @@ class mainWin(QMainWindow):
                         self.msgs_s = QLabel(self.txtInput.text())
                         msgsLayout.addWidget(self.msgs_s, alignment=Qt.AlignRight)
                         try:
+                                if contactUsrName == noteToSelfUser:
+                                        val = '{"fromUsername": username, "toUsername": username, "message": self.txtInput.text()}'
+                                        val = json.loads(val)
+                                        self.txtInput.clear()
+                                        setupMsgs(val)
+                                        return
                                 val = self.txtInput.text()
-                                self.localTxt = sendPackets(str(val))
+                                threadSendPackets(usernameAuth=None, msg=str(val))
                         except Exception as e:
                                 QMessageBox.critical(self, "Error", f"failed to process: {e}")
                         else:
-                                setupMsgs()
                                 self.txtInput.clear()
-                self.txtInput.returnPressed.connect(sendTxt) 
+                self.txtInput.returnPressed.connect(sendTxt)
+                self.incomingMessage.connect(setupMsgs)
 app = QApplication(sys.argv)
 
 window = mainWin()

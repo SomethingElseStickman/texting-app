@@ -4,7 +4,11 @@ import hashlib
 import json
 HOST = "127.0.0.1"
 PORT = 65432
+#TODO relay a message from client A by seeing if its online, store it as a var, then
+#send it off to client B through a json formatted string
 #offline and online users stored in dictionaries used to store offline messages until available
+
+#note: raddr is the remote public ip you are sending data to. laddr is the public ip that is you.
 """
 online list goes in a format like this:
 username -> conn, addr
@@ -19,7 +23,7 @@ with open("users.json", "r", encoding="utf-8") as f:
     jsonUsers = f.read()
 users = json.loads(jsonUsers)
 online = {}
-offline = {}
+offlineMessages = {}
 def writeToUsers():
     with open("users.json", "w", encoding="utf-8") as f:
         f.write(json.dumps(users, indent=4))
@@ -31,20 +35,33 @@ def connection(conn, addr):
             if data and (data.decode() == onlineVHashed):
                 conn.sendall("1".encode("utf-8"))
                 usrname = conn.recv(1024)
-                online[usrname.decode()] = [conn, addr]
-                if usrname not in users["users"]:
+                online[usrname.decode()] = conn
+                if usrname.decode() not in users["users"]:
                     users["users"].append(usrname.decode())
                     writeToUsers()
                 print(online)
             elif data and (data.decode() == usernameVHashed):
                 conn.sendall("2".encode("utf-8"))
                 CUsername = conn.recv(1024).decode() #Client Username
-                if ((CUsername not in online) and (CUsername not in offline)) or (CUsername not in users["users"]):
+                if CUsername not in users["users"]:
                     conn.sendall("good".encode("utf-8"))
                 else:
                     conn.sendall("bad".encode("utf-8"))
             elif data and (data.decode() != onlineVHashed):
-                conn.sendall(data)
+                msg = json.loads(data.decode())
+                print(msg)
+                print("Online:", online)
+                toUsr = msg["toUsername"]
+                fromUsr = msg["fromUsername"]
+                if toUsr in online:
+                    toConn = online[toUsr]
+                    print(str(toConn) + " heloo")
+                    toConn.sendall(json.dumps(msg).encode("utf-8"))
+                else:
+                    offlineMessages[toUsr] = {
+                        "fromUsername": fromUsr,
+                        "message": msg
+                    }
             if not data:
                 break
 

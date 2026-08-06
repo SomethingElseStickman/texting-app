@@ -6,6 +6,16 @@
             "contact_name": "Note To Self",
             "username": "127.0.0.1",
             "status": "Hello! Use this contact as a note taker for things you forget often."
+        },
+        {
+            "contact_name": "anonymous",
+            "username": "anonymous",
+            "status": ""
+        },
+        {
+            "contact_name": "beepers",
+            "username": "beepers",
+            "status": ""
         }
     ]
 }
