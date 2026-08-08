@@ -12,10 +12,46 @@ import json
 import hashlib
 import os
 import time
+from cryptography.hazmat.primitives.asymmetric import rsa, padding
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.fernet import Fernet
 HOST =  "127.0.0.1"
 PORT = 65432
 noteToSelfUser = "127.0.0.1"
 
+genFKey = Fernet.generate_key() #fernet key generated for symmetrical encryption
+fKey = Fernet(genFKey) #store the generated fernet key
+privateKey = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+publicKey = privateKey.public_key()
+serverPublicKey = None
+def encryptPublicKey(key, input):
+        try:
+                input.encode("utf-8")
+        except(AttributeError):
+                pass
+        PK = key.encrypt( #PK for public key
+                input,
+                padding.OAEP(
+                        mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                        algorithm=hashes.SHA256(),
+                        label=None,
+                        ),
+        )
+        return PK
+def decryptPrivateKey(key, input):
+        try:
+                input.encode("utf-8")
+        except(AttributeError):
+                pass
+        PK = key.decrypt( #PK for private key
+                input,
+                padding.OAEP(
+                mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                algorithm=hashes.SHA256(),
+                label=None,
+                ),
+        )
+        return PK
 clientSock = None
 recvData = False
 recvDataReady = threading.Event()
@@ -129,7 +165,7 @@ def sendPackets(usernameAuth: string, msg="disregard this message - sent by prog
                         "to": contactUsrName,
                         "msg": msg
                 })
-                client.sendall(json.dumps(dictMsg).encode("utf-8"))
+                client.sendall(fKey.encrypt(json.dumps(dictMsg).encode("utf-8")))
                 recvDataReady.wait()
                 localTxt = recvData
                 recvDataReady.clear()
@@ -138,8 +174,16 @@ def sendPackets(usernameAuth: string, msg="disregard this message - sent by prog
                 recvDataReady.wait()
                 result = recvData
                 recvDataReady.clear()
-                if result == "1":
-                        client.sendall(username.encode("utf-8"))
+                print("beep")
+                if not result == "":
+                        print("beep2")
+                        loadedPublicPEMKey = serialization.load_pem_public_key(result.encode("utf-8"))
+                        encryptedFernetKey = encryptPublicKey(loadedPublicPEMKey, genFKey)
+                        print("CLIENT encryptedFernetKey:", len(encryptedFernetKey))
+                        print("Fernet key:", len(genFKey), genFKey)
+                        print("RSA encrypted:", len(result), result)
+                        client.sendall(encryptedFernetKey)
+                        client.sendall(fKey.encrypt(username.encode("utf-8")))
                         onlineNotifier = 0
                         result = 0
         elif (onlineNotifier == 2): #checks if a username exists
@@ -149,7 +193,13 @@ def sendPackets(usernameAuth: string, msg="disregard this message - sent by prog
                 result = recvData
                 recvDataReady.clear()
                 if result.decode() == "2":
-                        client.sendall(usernameAuth.encode("utf-8"))
+                        recvDataReady.wait()
+                        result = recvData
+                        recvDataReady.clear()
+                        loadedPublicPEMKey = serialization.load_pem_public_key(result)
+                        encryptedFernetKey = encryptPublicKey(loadedPublicPEMKey, genFKey)
+                        client.sendall(encryptedFernetKey)
+                        client.sendall(fKey.encrypt(usernameAuth.encode("utf-8")))
                         recvDataReady.wait()
                         result = recvData
                         recvDataReady.clear()
@@ -351,10 +401,10 @@ class mainWin(QMainWindow):
 
                 mainWidget.setLayout(mainLayout)
                 def setupMsgs(data):
-                        msgDict = json.loads(data)
+                        msgDict = json.loads(fKey.decrypt(data))
                         self.msgs = QLabel(msgDict["message"])
                         msgsLayout.addWidget(self.msgs)
-                self.localTxt = ""
+                self.localTxt = None
                 def sendTxt():
                         #msgs_s for msgs send - what the client sends to the server
                         self.msgs_s = QLabel(self.txtInput.text())
