@@ -2,7 +2,7 @@ import socket
 from PyQt5.QtWidgets import (
 QApplication, QMainWindow, QLineEdit, QMessageBox, QVBoxLayout, QLabel, 
 QHBoxLayout, QScrollArea, QWidget, QDialog, QDialogButtonBox, QComboBox, 
-QToolBar, QAction
+QToolBar, QAction, QSizePolicy
 )
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import QSize, Qt, pyqtSignal
@@ -56,6 +56,7 @@ clientSock = None
 recvData = False
 recvDataReady = threading.Event()
 incomingMsg = threading.Event()
+recvPacketsThreadStarted = False
 fileDir = os.path.dirname(__file__)
 iconDir = os.path.join(fileDir, "icons")
 with open("contacts.json", "r", encoding="utf-8") as f:
@@ -213,9 +214,11 @@ def recvPackets():
         global clientSock
         global recvDataReady
         global recvData
+        global recvPacketsThreadStarted
         client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         clientSock = client
         client.connect((HOST, PORT))
+        recvPacketsThreadStarted = True
         while True:
                 data = client.recv(1024)
                 if data:
@@ -320,7 +323,9 @@ class mainWin(QMainWindow):
                         daemon=True
                 )
                 thread.start()
-                if contactUsrName != noteToSelfUser:
+                while not recvPacketsThreadStarted:
+                        continue
+                if (contactUsrName != noteToSelfUser):
                         threadSendPackets(None)
                 def addUser_ATriggered():
                         usrInterfaceDlg = addUser()
@@ -387,6 +392,7 @@ class mainWin(QMainWindow):
 
                 sendTxtLayout = QHBoxLayout()
                 self.txtInput = QLineEdit()
+                self.txtInput.setStyleSheet("border: 1px solid rgba(100, 100, 100, 0.3); border-radius: 10px; background-color: rgba(150, 150, 150, 0.3); font-family: Courier New, Arial;")
                 sendTxtLayout.addWidget(self.txtInput)
 
                 #scroll bar properties
@@ -403,11 +409,17 @@ class mainWin(QMainWindow):
                 def setupMsgs(data):
                         msgDict = json.loads(fKey.decrypt(data))
                         self.msgs = QLabel(msgDict["message"])
-                        msgsLayout.addWidget(self.msgs)
+                        self.msgs.setWordWrap(True)
+                        self.msgs.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
+                        self.msgs.setStyleSheet("border: 1px solid rgba(90, 90, 90, 1); border-radius: 10px; color: rgb(255, 255, 255); background-color: rgba(90, 90, 90, 1); font-family: Courier New, Arial;")
+                        msgsLayout.addWidget(self.msgs, alignment=Qt.AlignLeft)
                 self.localTxt = None
                 def sendTxt():
                         #msgs_s for msgs send - what the client sends to the server
                         self.msgs_s = QLabel(self.txtInput.text())
+                        self.msgs_s.setWordWrap(True)
+                        self.msgs_s.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
+                        self.msgs_s.setStyleSheet("border: 1px solid rgba(70, 70, 255, 1); border-radius: 10px; color: rgb(255, 255, 255); background-color: rgba(70, 70, 255, 1); font-family: Courier New, Arial;")
                         msgsLayout.addWidget(self.msgs_s, alignment=Qt.AlignRight)
                         try:
                                 if contactUsrName == noteToSelfUser:
@@ -425,7 +437,6 @@ class mainWin(QMainWindow):
                 self.txtInput.returnPressed.connect(sendTxt)
                 self.incomingMessage.connect(setupMsgs)
 app = QApplication(sys.argv)
-
 window = mainWin()
 window.show()
 app.exec()
