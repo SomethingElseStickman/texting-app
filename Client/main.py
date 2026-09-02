@@ -21,6 +21,8 @@ noteToSelfUser = "127.0.0.1"
 
 genFKey = Fernet.generate_key() #fernet key generated for symmetrical encryption
 fKey = Fernet(genFKey) #store the generated fernet key
+genServerFKey = Fernet.generate_key()
+serverFKey = Fernet(genServerFKey)
 privateKey = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 publicKey = privateKey.public_key()
 serverPublicKey = None
@@ -52,6 +54,12 @@ def decryptPrivateKey(key, input):
                 ),
         )
         return PK
+def convertPKToBytes(key):
+        publicKeyBytes = key.public_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PublicFormat.SubjectPublicKeyInfo
+        return publicKeyBytes
+)
 clientSock = None
 recvData = False
 recvDataReady = threading.Event()
@@ -72,6 +80,7 @@ contactUsrName = ""
 temp = None
 interv = 0
 localTxt = None
+startUp = False
 onlineNotifier = 1 #tells send packets func if we are just notifying online status or are sending a text message
 #iterates through the contact json script
 def threadSendPackets(usernameAuth: string, msg="disregard this message - sent by program DISREGARD"):
@@ -154,62 +163,27 @@ class addUser(QDialog):
                 self.inp.returnPressed.connect(returnP)
                 self.btnWidget.button(QDialogButtonBox.Apply).clicked.connect(returnP)
                 self.btnWidget.button(QDialogButtonBox.Close).clicked.connect(denied)
-def sendPackets(usernameAuth: string, msg="disregard this message - sent by program DISREGARD"):
+def sendPackets(usernameAuth: string, msg="disregard this message - sent by program DISREGARD", mode: string):
         global onlineNotifier
         global localTxt
         global recvData
+        global serverPublicKey
         client = clientSock
-        if onlineNotifier == 0:
-                dictMsg = {"fromUsername": username, "toUsername": contactUsrName, "message": msg}
-                print({
-                        "from": username,
-                        "to": contactUsrName,
-                        "msg": msg
-                })
-                client.sendall(fKey.encrypt(json.dumps(dictMsg).encode("utf-8")))
-                recvDataReady.wait()
-                localTxt = recvData
-                recvDataReady.clear()
-        elif (onlineNotifier == 1): #notifies server client user is online
-                client.sendall(str(hashlib.sha256("online".encode("utf-8")).hexdigest()).encode("utf-8"))
-                recvDataReady.wait()
-                result = recvData
-                recvDataReady.clear()
-                print("beep")
-                if not result == "":
-                        print("beep2")
-                        loadedPublicPEMKey = serialization.load_pem_public_key(result.encode("utf-8"))
-                        encryptedFernetKey = encryptPublicKey(loadedPublicPEMKey, genFKey)
-                        print("CLIENT encryptedFernetKey:", len(encryptedFernetKey))
-                        print("Fernet key:", len(genFKey), genFKey)
-                        print("RSA encrypted:", len(result), result)
-                        client.sendall(encryptedFernetKey)
-                        client.sendall(fKey.encrypt(username.encode("utf-8")))
-                        onlineNotifier = 0
-                        result = 0
-        elif (onlineNotifier == 2): #checks if a username exists
-                print("hi")
-                client.sendall(str(hashlib.sha256("username".encode("utf-8")).hexdigest()).encode("utf-8"))
-                recvDataReady.wait()
-                result = recvData
-                recvDataReady.clear()
-                if result.decode() == "2":
-                        recvDataReady.wait()
-                        result = recvData
-                        recvDataReady.clear()
-                        loadedPublicPEMKey = serialization.load_pem_public_key(result)
-                        encryptedFernetKey = encryptPublicKey(loadedPublicPEMKey, genFKey)
-                        client.sendall(encryptedFernetKey)
-                        client.sendall(fKey.encrypt(usernameAuth.encode("utf-8")))
-                        recvDataReady.wait()
-                        result = recvData
-                        recvDataReady.clear()
-                        print(result + "1")
-                        if result == "good":
-                                onlineNotifier = 735 #735 for yes
-                        else:
-                                print(result)
-                                onlineNotifier = 4063 #4063 for nope
+        pem = None
+        if recvDataReady and not startUp:
+                startUp = True
+                pem = recvData
+                serverPublicKey = load_pem_public_key(pem)
+                SFKTEMPpublicKey = encryptPublicKey(serverPublicKey, serverFKey)#server fernet key temporary (for the symmetrical encryption with server)
+                pemSFK = convertPKToBytes(SFKTEMPpublicKey)
+                client.sendall(pemSFK + b"\n")
+        if mode == "checkUsr":
+
+        elif mode == "checkUsrExists":
+                pass
+        elif mode == "text":
+                pass
+
 def recvPackets():
         global clientSock
         global recvDataReady
@@ -219,9 +193,13 @@ def recvPackets():
         clientSock = client
         client.connect((HOST, PORT))
         recvPacketsThreadStarted = True
+        def recvProtocol(byteString):
+                while byteString.find("\n") == -1:
+                time.sleep(0.1)
         while True:
                 data = client.recv(1024)
                 if data:
+                        recvProtocol()
                         recvData = data.decode()
                         recvDataReady.set()
                         try:
@@ -396,10 +374,12 @@ class mainWin(QMainWindow):
                 sendTxtLayout.addWidget(self.txtInput)
 
                 #scroll bar properties
-
                 self.msgsScroll.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
                 self.msgsScroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
                 self.msgsScroll.setWidgetResizable(True)
+                def scrollDown():
+                        maxOfScroll = self.msgsScroll.verticalScrollBar().maximum()
+                        self.msgsScroll.verticalScrollBar().setValue(maxOfScroll)
                 self.msgsScroll.setWidget(self.msgsLayoutContainer)
 
                 mainLayout.addWidget(self.msgsScroll)
@@ -411,7 +391,13 @@ class mainWin(QMainWindow):
                         self.msgs = QLabel(msgDict["message"])
                         self.msgs.setWordWrap(True)
                         self.msgs.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
-                        self.msgs.setStyleSheet("border: 1px solid rgba(90, 90, 90, 1); border-radius: 10px; color: rgb(255, 255, 255); background-color: rgba(90, 90, 90, 1); font-family: Courier New, Arial;")
+                        self.msgs.setStyleSheet("""border: 1px solid rgba(90, 90, 90, 1);
+                                                border-radius: 10px;
+                                                color: rgb(255, 255, 255);
+                                                background-color: rgba(90, 90, 90, 1);
+                                                font-family: Courier New, Arial;
+                                                padding: 5px;
+                                                """)
                         msgsLayout.addWidget(self.msgs, alignment=Qt.AlignLeft)
                 self.localTxt = None
                 def sendTxt():
@@ -419,7 +405,12 @@ class mainWin(QMainWindow):
                         self.msgs_s = QLabel(self.txtInput.text())
                         self.msgs_s.setWordWrap(True)
                         self.msgs_s.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
-                        self.msgs_s.setStyleSheet("border: 1px solid rgba(70, 70, 255, 1); border-radius: 10px; color: rgb(255, 255, 255); background-color: rgba(70, 70, 255, 1); font-family: Courier New, Arial;")
+                        self.msgs_s.setStyleSheet("""border: 1px solid rgba(70, 70, 255, 1);
+                                                  border-radius: 10px; color: rgb(255, 255, 255);
+                                                  background-color: rgba(70, 70, 255, 1);
+                                                  font-family: Courier New, Arial;
+                                                  padding: 5px;
+                                                  """)
                         msgsLayout.addWidget(self.msgs_s, alignment=Qt.AlignRight)
                         try:
                                 if contactUsrName == noteToSelfUser:
@@ -436,6 +427,8 @@ class mainWin(QMainWindow):
                                 self.txtInput.clear()
                 self.txtInput.returnPressed.connect(sendTxt)
                 self.incomingMessage.connect(setupMsgs)
+
+                self.msgsScroll.verticalScrollBar().rangeChanged.connect(scrollDown)
 app = QApplication(sys.argv)
 window = mainWin()
 window.show()

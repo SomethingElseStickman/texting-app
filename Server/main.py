@@ -66,62 +66,20 @@ offlineMessages = {}
 def writeToUsers():
     with open("users.json", "w", encoding="utf-8") as f:
         f.write(json.dumps(users, indent=4))
+def recvProtocol(byteString):
+    while byteString.find("\n") == -1:
+        time.sleep(0.1)
 def connection(conn, addr):
     with conn:
         print(f"Connected by {addr}")
         while True:
             data = conn.recv(1024)
             data.decode()
-            if data and (data.decode() == onlineVHashed):
-                conn.sendall(publicKeyBytes)
-                clientFKeyEncrypted = conn.recv(256)
-                print(len(clientFKeyEncrypted))
-                clientFKey = decryptPrivateKey(privateKey, clientFKeyEncrypted)
-                referenceCFKey = clientFKey#reference of client fernet key
-                print(len(clientFKey))
-                clientFKey = Fernet(clientFKey)
-                usrnameEncrypted = conn.recv(1024)
-                usrname = clientFKey.decrypt(usrnameEncrypted).decode()
-                userKeys[usrname] = referenceCFKey
-                online[usrname] = conn
-                if usrname not in users["users"]:
-                    users["users"].append(usrname)
-                    writeToUsers()
-                print(online)
-            elif data and (data.decode() == usernameVHashed):
-                conn.sendall("2".encode("utf-8"))
-                conn.sendall(publicKeyBytes)
-                clientFKeyEncrypted = conn.recv(256)
-                clientFKey = decryptPrivateKey(privateKey, clientFKeyEncrypted)
-                clientFKey = Fernet(clientFKey)
-                CUsernameEnc = conn.recv(1024) #Client Username encrypted
-                CUsername = clientFKey.decrypt(CUsernameEnc)
-                if CUsername not in users["users"]:
-                    conn.sendall("good".encode("utf-8"))
-                else:
-                    conn.sendall("bad".encode("utf-8"))
-            elif data and (data.decode() != onlineVHashed):
-                msgEnc = userKeys[usrname]
-                print(msgEnc)
-                msgEnc = Fernet(msgEnc)
-                print(msgEnc)
-                msg = msgEnc.decrypt(data.decode())
-                msg = json.loads(msg)
-                print(msg)
-                print("Online:", online)
-                toUsr = msg["toUsername"]
-                fromUsr = msg["fromUsername"]
-                if toUsr in online:
-                    toConn = online[toUsr]
-                    toConnKey = userKeys[toUsr]
-                    toConnKey = Fernet(toConnKey)
-                    print(str(toConn) + " heloo")
-                    toConn.sendall(toConnKey.encrypt(json.dumps(msg).encode("utf-8")))
-                else:
-                    offlineMessages[toUsr] = {
-                        "fromUsername": fromUsr,
-                        "message": msg
-                    }
+            if data:
+                conn.sendall(publicKeyBytes + b"\n")
+                clientFKeyEncrypted = conn.recv(1024)
+                recvProtocol()
+                clientFKey = decryptPrivateKey(public_key, clientFKeyEncrypted)
             if not data:
                 break
 
