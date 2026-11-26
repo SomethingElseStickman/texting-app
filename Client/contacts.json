@@ -1,11 +1,30 @@
 {
-    "username": "matt",
+    "username": "beepers",
     "status": "no status",
     "contacts": [
         {
             "contact_name": "Note To Self",
             "username": "127.0.0.1",
-            "status": "Hello! Use this contact as a note taker for things you forget often."
+            "status": "Hello! Use this contact as a note taker for things you forget often.",
+            "msg_cache": ""
+        },
+        {
+            "contact_name": "anonymous",
+            "username": "anonymous",
+            "status": "",
+            "msg_cache": ""
+        },
+        {
+            "contact_name": "matt",
+            "username": "matt",
+            "status": "offline",
+            "msg_cache": "hi"
+        },
+        {
+            "contact_name": "bob",
+            "username": "bob",
+            "status": "",
+            "msg_cache": ""
         }
     ]
 }
