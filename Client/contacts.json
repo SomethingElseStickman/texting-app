@@ -5,12 +5,17 @@
         {
             "contact_name": "Note To Self",
             "username": "127.0.0.1",
+<<<<<<< HEAD
             "status": "Hello! Use this contact as a note taker for things you forget often.",
             "msg_cache": ""
+=======
+            "status": "Hello! Use this contact as a note taker for things you forget often."
+>>>>>>> 175ed7a42199c97688a52feab798439e62896379
         },
         {
             "contact_name": "anonymous",
             "username": "anonymous",
+<<<<<<< HEAD
             "status": "",
             "msg_cache": ""
         },
@@ -25,6 +30,14 @@
             "username": "bob",
             "status": "",
             "msg_cache": ""
+=======
+            "status": ""
+        },
+        {
+            "contact_name": "beepers",
+            "username": "beepers",
+            "status": ""
+>>>>>>> 175ed7a42199c97688a52feab798439e62896379
         }
     ]
 }
