@@ -12,13 +12,10 @@ import json
 import hashlib
 import os
 import time
-<<<<<<< HEAD
 import struct
 import atexit
 import base64
 from enum import IntEnum
-=======
->>>>>>> 175ed7a42199c97688a52feab798439e62896379
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.fernet import Fernet
@@ -26,7 +23,6 @@ HOST =  "127.0.0.1"
 PORT = 65432
 noteToSelfUser = "127.0.0.1"
 
-<<<<<<< HEAD
 fKeyServer = None
 genFKeyClient = Fernet.generate_key()
 fKeyClient = Fernet(genFKeyClient)
@@ -35,13 +31,6 @@ privateKey = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 publicKey = privateKey.public_key()
 serverPublicKey = None
 textedBefore = False
-=======
-genFKey = Fernet.generate_key() #fernet key generated for symmetrical encryption
-fKey = Fernet(genFKey) #store the generated fernet key
-privateKey = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-publicKey = privateKey.public_key()
-serverPublicKey = None
->>>>>>> 175ed7a42199c97688a52feab798439e62896379
 def encryptPublicKey(key, input):
         try:
                 input.encode("utf-8")
@@ -70,7 +59,6 @@ def decryptPrivateKey(key, input):
                 ),
         )
         return PK
-<<<<<<< HEAD
 pemClientPublicKey = publicKey.public_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PublicFormat.SubjectPublicKeyInfo
@@ -81,12 +69,6 @@ undecodedRecvData = False
 recvDataReady = threading.Event()
 incomingMsg = threading.Event()
 usernameExistsReady = threading.Event()
-=======
-clientSock = None
-recvData = False
-recvDataReady = threading.Event()
-incomingMsg = threading.Event()
->>>>>>> 175ed7a42199c97688a52feab798439e62896379
 recvPacketsThreadStarted = False
 fileDir = os.path.dirname(__file__)
 iconDir = os.path.join(fileDir, "icons")
@@ -97,16 +79,12 @@ username = dicContacts["username"]
 contacts = []
 contactUsernames = []
 contactStatuses = []
-<<<<<<< HEAD
 contactMsgCache = []
-=======
->>>>>>> 175ed7a42199c97688a52feab798439e62896379
 contactMsgName = ""
 contactUsrName = ""
 temp = None
 interv = 0
 localTxt = None
-<<<<<<< HEAD
 recvPacketType = None
 ackOnlineToServer = False
 usernameExists = None
@@ -142,17 +120,6 @@ def recvExact(sock, length):
                         raise ConnectionError("conn closed :(")
                 data+=chunk
         return data
-=======
-onlineNotifier = 1 #tells send packets func if we are just notifying online status or are sending a text message
-#iterates through the contact json script
-def threadSendPackets(usernameAuth: string, msg="disregard this message - sent by program DISREGARD"):
-        th = threading.Thread(
-                target=sendPackets,
-                args=(usernameAuth, msg),
-                daemon=True
-        )
-        th.start()
->>>>>>> 175ed7a42199c97688a52feab798439e62896379
 def iterateThroughContacts():
         global contacts, contactUsernames, contactStatuses
         for contact in dicContacts["contacts"]:
@@ -166,7 +133,6 @@ def updateContacts():
                 f.write(json.dumps(dicContacts, indent=4))
 #send packets to the server
 #NOTE: right now it just sends the text back to the sender
-<<<<<<< HEAD
 def checkUsername(tmp: str, addC=False): #tmp for the userauth but im too lazy to make a name for that also addC for addcontact var
         if tmp != noteToSelfUser:
                 threadSendPackets(tmp, "verifyUserExists")
@@ -191,33 +157,6 @@ def checkUsername(tmp: str, addC=False): #tmp for the userauth but im too lazy t
                         return False
                 else:
                         #mainL()
-=======
-def checkUsername(tmp: string, addC=False): #tmp for the userauth but im too lazy to make a name for that also addC for addcontact var
-        global onlineNotifier
-        onlineNotifier = 2
-        print(tmp)
-        if tmp != noteToSelfUser:
-                threadSendPackets(usernameAuth=tmp)
-        else:
-                return True
-        def mainL(): #main logic
-                global onlineNotifier
-                print(onlineNotifier)
-                onlineNotifier = 0
-        if onlineNotifier == 735:
-                if addC == False: #return for if func is checking if user is in database
-                        mainL()
-                        return True
-                else: #return for if func is checking if the user is not in the database
-                        mainL()
-                        return False
-        elif onlineNotifier == 4063:
-                if addC == False:
-                        mainL()
-                        return False
-                else:
-                        mainL()
->>>>>>> 175ed7a42199c97688a52feab798439e62896379
                         return True
 
 class addUser(QDialog):
@@ -254,7 +193,6 @@ class addUser(QDialog):
                 self.inp.returnPressed.connect(returnP)
                 self.btnWidget.button(QDialogButtonBox.Apply).clicked.connect(returnP)
                 self.btnWidget.button(QDialogButtonBox.Close).clicked.connect(denied)
-<<<<<<< HEAD
 def sendPackets(usernameAuth: str, packetType: str, msg="disregard this message - sent by program DISREGARD"):
         #global onlineNotifier
         global localTxt
@@ -369,82 +307,19 @@ def sendPackets(usernameAuth: str, packetType: str, msg="disregard this message 
                 sendQuit = {"fromUsername": username, "toUsername": contactUsrName, "message": None, "key": None, "additional": None}
                 encryptedSendQuit = fKeyServer.encrypt(json.dumps(sendQuit).encode("utf-8"))
                 client.sendall(struct.pack("!BI", packetTypes.QUITTING, len(encryptedSendQuit))+encryptedSendQuit)"""
-=======
-def sendPackets(usernameAuth: string, msg="disregard this message - sent by program DISREGARD"):
-        global onlineNotifier
-        global localTxt
-        global recvData
-        client = clientSock
-        if onlineNotifier == 0:
-                dictMsg = {"fromUsername": username, "toUsername": contactUsrName, "message": msg}
-                print({
-                        "from": username,
-                        "to": contactUsrName,
-                        "msg": msg
-                })
-                client.sendall(fKey.encrypt(json.dumps(dictMsg).encode("utf-8")))
-                recvDataReady.wait()
-                localTxt = recvData
-                recvDataReady.clear()
-        elif (onlineNotifier == 1): #notifies server client user is online
-                client.sendall(str(hashlib.sha256("online".encode("utf-8")).hexdigest()).encode("utf-8"))
-                recvDataReady.wait()
-                result = recvData
-                recvDataReady.clear()
-                print("beep")
-                if not result == "":
-                        print("beep2")
-                        loadedPublicPEMKey = serialization.load_pem_public_key(result.encode("utf-8"))
-                        encryptedFernetKey = encryptPublicKey(loadedPublicPEMKey, genFKey)
-                        print("CLIENT encryptedFernetKey:", len(encryptedFernetKey))
-                        print("Fernet key:", len(genFKey), genFKey)
-                        print("RSA encrypted:", len(result), result)
-                        client.sendall(encryptedFernetKey)
-                        client.sendall(fKey.encrypt(username.encode("utf-8")))
-                        onlineNotifier = 0
-                        result = 0
-        elif (onlineNotifier == 2): #checks if a username exists
-                print("hi")
-                client.sendall(str(hashlib.sha256("username".encode("utf-8")).hexdigest()).encode("utf-8"))
-                recvDataReady.wait()
-                result = recvData
-                recvDataReady.clear()
-                if result.decode() == "2":
-                        recvDataReady.wait()
-                        result = recvData
-                        recvDataReady.clear()
-                        loadedPublicPEMKey = serialization.load_pem_public_key(result)
-                        encryptedFernetKey = encryptPublicKey(loadedPublicPEMKey, genFKey)
-                        client.sendall(encryptedFernetKey)
-                        client.sendall(fKey.encrypt(usernameAuth.encode("utf-8")))
-                        recvDataReady.wait()
-                        result = recvData
-                        recvDataReady.clear()
-                        print(result + "1")
-                        if result == "good":
-                                onlineNotifier = 735 #735 for yes
-                        else:
-                                print(result)
-                                onlineNotifier = 4063 #4063 for nope
->>>>>>> 175ed7a42199c97688a52feab798439e62896379
 def recvPackets():
         global clientSock
         global recvDataReady
         global recvData
-<<<<<<< HEAD
         global undecodedRecvData
         global recvPacketsThreadStarted
         global recvPacketType
         global fKeyRecipient
-=======
-        global recvPacketsThreadStarted
->>>>>>> 175ed7a42199c97688a52feab798439e62896379
         client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         clientSock = client
         client.connect((HOST, PORT))
         recvPacketsThreadStarted = True
         while True:
-<<<<<<< HEAD
                 header = recvExact(client, 5)
                 packetType, dataLength = struct.unpack("!BI", header)
                 data = recvExact(client, dataLength)    
@@ -471,16 +346,6 @@ def recvPackets():
                                 localTxt = None
                                 pass
                 recvDataReady.set()
-=======
-                data = client.recv(1024)
-                if data:
-                        recvData = data.decode()
-                        recvDataReady.set()
-                        try:
-                                window.incomingMessage.emit(recvData)
-                        except NameError:
-                                pass
->>>>>>> 175ed7a42199c97688a52feab798439e62896379
                 if not data:
                         break
 class choose_contact_text(QDialog):
@@ -537,18 +402,13 @@ class addContact(QDialog):
                 self.btnLayout.addWidget(self.btnWidget)
                 self.setLayout(self.btnLayout)
                 def accepted():
-<<<<<<< HEAD
                         def redoDlgFunc(winTitle: str, text: str):
-=======
-                        def redoDlgFunc(winTitle: string, text: string):
->>>>>>> 175ed7a42199c97688a52feab798439e62896379
                                 redoDlg = QMessageBox(self)
                                 redoDlg.setWindowTitle(winTitle)
                                 redoDlg.setText(text)
                                 redoDlg.setStandardButtons(QMessageBox.Retry)
                                 redoDlg.setIcon(QMessageBox.Warning)
                                 redoDlg.exec()
-<<<<<<< HEAD
                         if not self.contactInp.text().strip() or not self.userInp.text().strip():
                                 redoDlgFunc(winTitle="Redo Inputs", text="One or more text inputs were left empty. Please fill out both of these inputs with a valid username and contact.")
                                 return
@@ -559,7 +419,7 @@ class addContact(QDialog):
                                         "username": self.userInp.text(),
                                         "status": "",
                                         "msg_cache": ""
-=======
+                                        
                         if (self.contactInp or self.userInp) == "":
                                 redoDlgFunc(winTitle="Redo Inputs", text="One or more text inputs were left empty. Please fill out both of these inputs with a valid username and contact.")
                                 return
@@ -569,15 +429,10 @@ class addContact(QDialog):
                                         "contact_name" : self.contactInp.text(),
                                         "username" : self.userInp.text(),
                                         "status" : ""
->>>>>>> 175ed7a42199c97688a52feab798439e62896379
                                 }
                                 dicContacts["contacts"].append(newContact)
                                 updateContacts()
                                 iterateThroughContacts()
-<<<<<<< HEAD
-=======
-                                print("new contact added")
->>>>>>> 175ed7a42199c97688a52feab798439e62896379
                                 self.accept()
                         else:
                                 redoDlgFunc(winTitle="Username Doesnt Exist", text="The username you typed doesn't exist in our database. Please check your spelling.")
@@ -587,11 +442,7 @@ class addContact(QDialog):
                 self.btnWidget.button(QDialogButtonBox.Apply).clicked.connect(accepted)
                 self.btnWidget.button(QDialogButtonBox.Close).clicked.connect(denied)
 class mainWin(QMainWindow):
-<<<<<<< HEAD
         incomingMessage = pyqtSignal(bytes)
-=======
-        incomingMessage = pyqtSignal(str)
->>>>>>> 175ed7a42199c97688a52feab798439e62896379
         def __init__(self):
                 super().__init__()
 
@@ -600,7 +451,6 @@ class mainWin(QMainWindow):
                         daemon=True
                 )
                 thread.start()
-<<<<<<< HEAD
                 def sendMessageWorkflow(msg):
                         global textedBefore
                         if not textedBefore:
@@ -612,12 +462,6 @@ class mainWin(QMainWindow):
                 
                 while not recvPacketsThreadStarted:
                         continue
-=======
-                while not recvPacketsThreadStarted:
-                        continue
-                if (contactUsrName != noteToSelfUser):
-                        threadSendPackets(None)
->>>>>>> 175ed7a42199c97688a52feab798439e62896379
                 def addUser_ATriggered():
                         usrInterfaceDlg = addUser()
                         if usrInterfaceDlg.exec():
@@ -702,7 +546,6 @@ class mainWin(QMainWindow):
 
                 mainWidget.setLayout(mainLayout)
                 def setupMsgs(data):
-<<<<<<< HEAD
                         try:
                                 msgDict = json.loads(fKeyServer.decrypt(data))
                                 self.msgs = QLabel(fKeyRecipient.decrypt(base64.b64decode(msgDict["message"])).decode("utf-8"))
@@ -719,13 +562,6 @@ class mainWin(QMainWindow):
                                                 font-family: Courier New, Arial;
                                                 padding: 5px;
                                                 """)
-=======
-                        msgDict = json.loads(fKey.decrypt(data))
-                        self.msgs = QLabel(msgDict["message"])
-                        self.msgs.setWordWrap(True)
-                        self.msgs.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
-                        self.msgs.setStyleSheet("border: 1px solid rgba(90, 90, 90, 1); border-radius: 10px; color: rgb(255, 255, 255); background-color: rgba(90, 90, 90, 1); font-family: Courier New, Arial;")
->>>>>>> 175ed7a42199c97688a52feab798439e62896379
                         msgsLayout.addWidget(self.msgs, alignment=Qt.AlignLeft)
                 self.localTxt = None
                 def sendTxt():
@@ -733,7 +569,6 @@ class mainWin(QMainWindow):
                         self.msgs_s = QLabel(self.txtInput.text())
                         self.msgs_s.setWordWrap(True)
                         self.msgs_s.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
-<<<<<<< HEAD
                         self.msgs_s.setStyleSheet("""border: 1px solid rgba(70, 70, 255, 1);
                                                   border-radius: 10px; color: rgb(255, 255, 255);
                                                   background-color: rgba(70, 70, 255, 1);
@@ -745,40 +580,25 @@ class mainWin(QMainWindow):
                                 if contactUsrName == noteToSelfUser:
                                         val = {"fromUsername": username, "toUsername": username, "message": self.txtInput.text()}
                                         val = json.dumps(val)
-=======
-                        self.msgs_s.setStyleSheet("border: 1px solid rgba(70, 70, 255, 1); border-radius: 10px; color: rgb(255, 255, 255); background-color: rgba(70, 70, 255, 1); font-family: Courier New, Arial;")
-                        msgsLayout.addWidget(self.msgs_s, alignment=Qt.AlignRight)
-                        try:
-                                if contactUsrName == noteToSelfUser:
-                                        val = '{"fromUsername": username, "toUsername": username, "message": self.txtInput.text()}'
-                                        val = json.loads(val)
->>>>>>> 175ed7a42199c97688a52feab798439e62896379
                                         self.txtInput.clear()
                                         setupMsgs(val)
                                         return
                                 val = self.txtInput.text()
-<<<<<<< HEAD
                                 threading.Thread(
                                 target=sendMessageWorkflow,
                                         args=(str(val),),
                                         daemon=True
                                 ).start()
-=======
-                                threadSendPackets(usernameAuth=None, msg=str(val))
->>>>>>> 175ed7a42199c97688a52feab798439e62896379
                         except Exception as e:
                                 QMessageBox.critical(self, "Error", f"failed to process: {e}")
                         else:
                                 self.txtInput.clear()
                 self.txtInput.returnPressed.connect(sendTxt)
                 self.incomingMessage.connect(setupMsgs)
-<<<<<<< HEAD
                 self.msgsScroll.verticalScrollBar().rangeChanged.connect(scrollDown)
 #def cleanup():
         #closedYet = False
 
-=======
->>>>>>> 175ed7a42199c97688a52feab798439e62896379
 app = QApplication(sys.argv)
 window = mainWin()
 window.show()
