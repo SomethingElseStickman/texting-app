@@ -1,7 +1,12 @@
 {
     "users": [
         "anonymous",
+<<<<<<< HEAD
+        "beepers",
+        "bob"
+=======
         "matt",
         "beepers"
+>>>>>>> 175ed7a42199c97688a52feab798439e62896379
     ]
 }

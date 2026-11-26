@@ -1,4 +1,9 @@
 {
-	"version_number": "0.0.1"
-	"version_name": "idiotic bird nest"
+<<<<<<< HEAD
+	"version_number": "1.0.3",
+	"version_name": "tiny raccoon"
+=======
+	"version_number": "1.0.1"
+	"version_name": "suicidal ants"
+>>>>>>> 175ed7a42199c97688a52feab798439e62896379
 }
