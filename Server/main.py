@@ -1,19 +1,14 @@
 import socket
 import threading
 import json
-<<<<<<< HEAD
 import struct
 import base64
 from enum import IntEnum
-=======
-import time
->>>>>>> 175ed7a42199c97688a52feab798439e62896379
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.fernet import Fernet
 HOST = "127.0.0.1"
 PORT = 65432
-<<<<<<< HEAD
 #online list goes in a format like this:
 #username -> conn, addr
 class packetTypes(IntEnum):
@@ -31,51 +26,6 @@ class packetTypes(IntEnum):
 	QUITTING = 11
 	SERVERCOMM = 12
 	ACK = 13
-=======
-
-#TODO offline and online users stored in dictionaries used to store offline messages until available
-
-#note: raddr is the remote public ip you are sending data to. laddr is the public ip that is you.
-"""
-online list goes in a format like this:
-username -> conn, addr
-"""
-fKey = Fernet.generate_key()
-privateKey = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-publicKey = privateKey.public_key()
-def encryptPublicKey(key, input):
-    try:
-            input.encode("utf-8")
-    except(AttributeError):
-            pass
-    PK = key.encrypt( #PK for public key
-            input,
-            padding.OAEP(
-                    mgf=padding.MGF1(algorithm=hashes.SHA256()),
-                    algorithm=hashes.SHA256(),
-                    label=None,
-                    ),
-    )
-    return PK
-def decryptPrivateKey(key, input):
-    try:
-            input.encode("utf-8")
-    except(AttributeError):
-            pass
-    PK = key.decrypt( #PK for private key
-            input,
-            padding.OAEP(
-            mgf=padding.MGF1(algorithm=hashes.SHA256()),
-            algorithm=hashes.SHA256(),
-            label=None,
-            ),
-    )
-    return PK
-publicKeyBytes = publicKey.public_bytes(
-    encoding=serialization.Encoding.PEM,
-    format=serialization.PublicFormat.SubjectPublicKeyInfo
-)
->>>>>>> 175ed7a42199c97688a52feab798439e62896379
 
 with open("users.json", "r", encoding="utf-8") as f:
 	jsonUsers = f.read()
@@ -83,7 +33,6 @@ users = json.loads(jsonUsers)
 userKeys = {}
 online = {}
 offlineMessages = {}
-<<<<<<< HEAD
 serverPrivateKey = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 serverPublicKey = serverPrivateKey.public_key()
 pemServerPublicKey = serverPublicKey.public_bytes(
@@ -92,8 +41,6 @@ pemServerPublicKey = serverPublicKey.public_bytes(
 )
 genFKeyServer = Fernet.generate_key() #fernet key generated for symmetrical encryption
 fKeyServer = Fernet(genFKeyServer) #store the generated fernet key
-=======
->>>>>>> 175ed7a42199c97688a52feab798439e62896379
 def writeToUsers():
 	with open("users.json", "w", encoding="utf-8") as f:
 		f.write(json.dumps(users, indent=4))
@@ -136,68 +83,8 @@ def recvExact(sock, length):
 		return data
 
 def connection(conn, addr):
-<<<<<<< HEAD
 	with conn:
 		clientPublicKey = None
-=======
-    with conn:
-        print(f"Connected by {addr}")
-        while True:
-            data = conn.recv(1024)
-            data.decode()
-            if data and (data.decode() == onlineVHashed):
-                conn.sendall(publicKeyBytes)
-                clientFKeyEncrypted = conn.recv(256)
-                print(len(clientFKeyEncrypted))
-                clientFKey = decryptPrivateKey(privateKey, clientFKeyEncrypted)
-                referenceCFKey = clientFKey#reference of client fernet key
-                print(len(clientFKey))
-                clientFKey = Fernet(clientFKey)
-                usrnameEncrypted = conn.recv(1024)
-                usrname = clientFKey.decrypt(usrnameEncrypted).decode()
-                userKeys[usrname] = referenceCFKey
-                online[usrname] = conn
-                if usrname not in users["users"]:
-                    users["users"].append(usrname)
-                    writeToUsers()
-                print(online)
-            elif data and (data.decode() == usernameVHashed):
-                conn.sendall("2".encode("utf-8"))
-                conn.sendall(publicKeyBytes)
-                clientFKeyEncrypted = conn.recv(256)
-                clientFKey = decryptPrivateKey(privateKey, clientFKeyEncrypted)
-                clientFKey = Fernet(clientFKey)
-                CUsernameEnc = conn.recv(1024) #Client Username encrypted
-                CUsername = clientFKey.decrypt(CUsernameEnc)
-                if CUsername not in users["users"]:
-                    conn.sendall("good".encode("utf-8"))
-                else:
-                    conn.sendall("bad".encode("utf-8"))
-            elif data and (data.decode() != onlineVHashed):
-                msgEnc = userKeys[usrname]
-                print(msgEnc)
-                msgEnc = Fernet(msgEnc)
-                print(msgEnc)
-                msg = msgEnc.decrypt(data.decode())
-                msg = json.loads(msg)
-                print(msg)
-                print("Online:", online)
-                toUsr = msg["toUsername"]
-                fromUsr = msg["fromUsername"]
-                if toUsr in online:
-                    toConn = online[toUsr]
-                    toConnKey = userKeys[toUsr]
-                    toConnKey = Fernet(toConnKey)
-                    print(str(toConn) + " heloo")
-                    toConn.sendall(toConnKey.encrypt(json.dumps(msg).encode("utf-8")))
-                else:
-                    offlineMessages[toUsr] = {
-                        "fromUsername": fromUsr,
-                        "message": msg
-                    }
-            if not data:
-                break
->>>>>>> 175ed7a42199c97688a52feab798439e62896379
 
 		print(f"Connected by {addr}")
 		localUsr = None
